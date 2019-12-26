@@ -22,7 +22,13 @@ app.get("/", (req, res) => {
 ////
 var playersByRoom = { Room1: {}, Room2: {} };
 var roomByName = {
-	Room2: { name: "Room2", password: "Test" },
+	Room2: {
+		name: "Room2",
+		password: "Test",
+		statusLaunch: false,
+		team: { good: 0, bad: 0 },
+		actuality: []
+	},
 	Room1: { name: "Room1", password: "Test" }
 };
 
@@ -30,7 +36,7 @@ const sendPlayersList = (playersByRoom, room, socket) => {
 	socket.emit(
 		"player:list",
 		Object.values(playersByRoom[room]).map(player => ({
-			name: player.name,
+			username: player.name,
 			id: player.id,
 			ready: player.ready
 		}))
@@ -87,6 +93,7 @@ io.on("connection", socket => {
 					playersByRoom[room][socket.id].ready = readyBoolean;
 					sendPlayersList(playersByRoom, room, io.to(room));
 				});
+
 				socket.on("user:add", user => {
 					if (
 						Object.values(playersByRoom[user.room])
@@ -101,8 +108,114 @@ io.on("connection", socket => {
 						};
 						io.to(room).emit("alert:newUser");
 						sendPlayersList(playersByRoom, room, io.to(room));
-						socket.emit("game:enter");
+						socket.emit("game:enter", { username: user.name });
 					}
+				});
+
+				socket.on("room:launch", () => {
+					if (!roomByName[room].statusLaunch) {
+						roomByName[room].statusLaunch = true;
+						io.to(room).emit("game:launch", true);
+					}
+				});
+
+				socket.on("room:getStatusLaunch", () => {
+					io.to(room).emit(
+						"game:launch",
+						roomByName[room].statusLaunch
+					);
+				});
+
+				// PARTIE INGAME DES ACTIONS
+
+				socket.on("Player Selected After Succes", props => {
+					io.to(`${props.playerSuffer.id}`).emit(
+						"Alert",
+						`Vous devez boire 6 gorgé sous la surveillance de ${props.judge.username}`
+					);
+
+					io.to(`${props.judge.id}`).emit(
+						"Alert",
+						`Vous êtes le juge pour ${props.playerSuffer.username}`
+					);
+				});
+
+				socket.on("Succes Mission", props => {
+					roomByName[room].team[props.team] += props.rewardPoint;
+
+					if (roomByName[room].team[props.team] > 300) {
+						io.to(room).emit("Alert", `team ${props.team} win`);
+					} else io.to(room).emit("New Score", roomByName[room].team);
+
+					roomByName[room].actuality.unshift({
+						text: `team ${props.team} marque ${props.rewardPoint} points`,
+						type: "succesMission"
+					});
+					io.to(room).emit(
+						"New Actuality",
+						roomByName[room].actuality
+					);
+					console.log(roomByName[room].actuality);
+				});
+
+				socket.on("New Actuality", props => {
+					roomByName[room].actuality.unshift({
+						text: props.text,
+						idPlayer: props.idPlayer,
+						type: props.type
+					});
+					io.to(room).emit(
+						"New Actuality",
+						roomByName[room].actualityrs
+					);
+				});
+
+				socket.on("Delete Actuality", props => {
+					console.log(roomByName[room].actuality);
+					for (let id in roomByName[room].actuality) {
+						if (roomByName[room].actuality[id].idPlayer === props) {
+							roomByName[room].actuality.splice(id, 1);
+						}
+					}
+					console.log(props);
+					console.log(roomByName[room].actuality);
+					io.to(room).emit(
+						"New Actuality",
+						roomByName[room].actuality
+					);
+				});
+
+				socket.on("Spotted Mission", props => {
+					for (let id in roomByName[room].actuality) {
+						if (
+							roomByName[room].actuality[id].idPlayer ===
+							props.mission.idPlayer
+						) {
+							roomByName[room].actuality.splice(id, 1);
+						}
+					}
+					roomByName[room].actuality.unshift({
+						text: props.mission.textSpotted,
+						type: "spottedMission"
+					});
+					io.to(room).emit(
+						"New Actuality",
+						roomByName[room].actuality
+					);
+
+					io.to(`${props.mission.idPlayer}`).emit(
+						"Alert",
+						`Vous devez boire 6 gorgé sous la surveillance de ${props.selfId}`
+					);
+
+					io.to(`${props.selfId}`).emit(
+						"Alert",
+						`Vous êtes le juge pour ${props.mission.idPlayer}`
+					);
+				});
+
+				socket.on("Alert", props => {
+					io.to(`${props.idPlayer}`).emit("Alert", props.alert);
 				});
 			});
 			socket.emit("room:connected", room.name);
