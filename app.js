@@ -20,14 +20,39 @@ app.get("/", (req, res) => {
 });
 
 ////
-var playersByRoom = { Room1: {}, Room2: {} };
+var playersByRoom = {
+	Room1: {},
+	Room2: {
+		// miophiohh: {
+		// 	id: "miophiohh",
+		// 	name: "Fel",
+		// 	ready: true,
+		// 	room: "Room2",
+		// 	score: 0
+		// },
+		// bdgsefvssfes: {
+		// 	id: "bdgsefvssfes",
+		// 	name: "Gauth",
+		// 	ready: true,
+		// 	room: "Room2",
+		// 	score: 0
+		// },
+		// azfafafza: {
+		// 	id: "azfafafza",
+		// 	name: "Pauline",
+		// 	ready: true,
+		// 	room: "Room2",
+		// 	score: 0
+		// }
+	}
+};
 var roomByName = {
 	Room2: {
 		name: "Room2",
 		password: "Test",
-		statusLaunch: false,
-		team: { good: 0, bad: 0 },
-		actuality: []
+		statusLaunch: false
+		//team: { good: 0, bad: 0 },
+		//actuality: []
 	},
 	Room1: { name: "Room1", password: "Test" }
 };
@@ -35,11 +60,12 @@ var roomByName = {
 const sendPlayersList = (playersByRoom, room, socket) => {
 	socket.emit(
 		"player:list",
-		Object.values(playersByRoom[room]).map(player => ({
-			username: player.name,
-			id: player.id,
-			ready: player.ready
-		}))
+		Object.values(playersByRoom[room]).map(player => player)
+		//({
+		// 	username: player.name,
+		// 	id: player.id,
+		// 	ready: player.ready
+		// }))
 	);
 };
 ////
@@ -104,7 +130,8 @@ io.on("connection", socket => {
 					} else {
 						playersByRoom[user.room][socket.id] = {
 							...user,
-							id: socket.id
+							id: socket.id,
+							score: 0
 						};
 						io.to(room).emit("alert:newUser");
 						sendPlayersList(playersByRoom, room, io.to(room));
@@ -128,95 +155,118 @@ io.on("connection", socket => {
 
 				// PARTIE INGAME DES ACTIONS
 
-				socket.on("Player Selected After Succes", props => {
-					io.to(`${props.playerSuffer.id}`).emit(
-						"Alert",
-						`Vous devez boire 6 gorgé sous la surveillance de ${props.judge.username}`
-					);
-
-					io.to(`${props.judge.id}`).emit(
-						"Alert",
-						`Vous êtes le juge pour ${props.playerSuffer.username}`
-					);
+				socket.on("timer:end", params => {
+					sendPlayersList(playersByRoom, room, socket);
+					io.to(socket.id).emit("timer:update", 10 * 60);
 				});
 
-				socket.on("Succes Mission", props => {
-					roomByName[room].team[props.team] += props.rewardPoint;
-
-					if (roomByName[room].team[props.team] > 300) {
-						io.to(room).emit("Alert", `team ${props.team} win`);
-					} else io.to(room).emit("New Score", roomByName[room].team);
-
-					roomByName[room].actuality.unshift({
-						text: `team ${props.team} marque ${props.rewardPoint} points`,
-						type: "succesMission"
-					});
-					io.to(room).emit(
-						"New Actuality",
-						roomByName[room].actuality
-					);
-					console.log(roomByName[room].actuality);
-				});
-
-				socket.on("New Actuality", props => {
-					roomByName[room].actuality.unshift({
-						text: props.text,
-						idPlayer: props.idPlayer,
-						type: props.type
-					});
-					io.to(room).emit(
-						"New Actuality",
-						roomByName[room].actualityrs
-					);
-				});
-
-				socket.on("Delete Actuality", props => {
-					console.log(roomByName[room].actuality);
-					for (let id in roomByName[room].actuality) {
-						if (roomByName[room].actuality[id].idPlayer === props) {
-							roomByName[room].actuality.splice(id, 1);
-						}
+				socket.on("player:vote", params => {
+					if (params.idTarget) {
+						playersByRoom[room][params.idTarget] = {
+							...playersByRoom[room][params.idTarget],
+							score:
+								playersByRoom[room][params.idTarget].score + 1
+						};
+						sendPlayersList(playersByRoom, room, socket);
 					}
-					console.log(props);
-					console.log(roomByName[room].actuality);
-					io.to(room).emit(
-						"New Actuality",
-						roomByName[room].actuality
-					);
 				});
 
-				socket.on("Spotted Mission", props => {
-					for (let id in roomByName[room].actuality) {
-						if (
-							roomByName[room].actuality[id].idPlayer ===
-							props.mission.idPlayer
-						) {
-							roomByName[room].actuality.splice(id, 1);
-						}
-					}
-					roomByName[room].actuality.unshift({
-						text: props.mission.textSpotted,
-						type: "spottedMission"
-					});
-					io.to(room).emit(
-						"New Actuality",
-						roomByName[room].actuality
-					);
+				//
+				//
+				//
+				//
+				//
+				//
 
-					io.to(`${props.mission.idPlayer}`).emit(
-						"Alert",
-						`Vous devez boire 6 gorgé sous la surveillance de ${props.selfId}`
-					);
+				// socket.on("Player Selected After Succes", props => {
+				// 	io.to(`${props.playerSuffer.id}`).emit(
+				// 		"Alert",
+				// 		`Vous devez boire 6 gorgé sous la surveillance de ${props.judge.username}`
+				// 	);
 
-					io.to(`${props.selfId}`).emit(
-						"Alert",
-						`Vous êtes le juge pour ${props.mission.idPlayer}`
-					);
-				});
+				// 	io.to(`${props.judge.id}`).emit(
+				// 		"Alert",
+				// 		`Vous êtes le juge pour ${props.playerSuffer.username}`
+				// 	);
+				// });
 
-				socket.on("Alert", props => {
-					io.to(`${props.idPlayer}`).emit("Alert", props.alert);
-				});
+				// socket.on("Succes Mission", props => {
+				// 	roomByName[room].team[props.team] += props.rewardPoint;
+
+				// 	if (roomByName[room].team[props.team] > 300) {
+				// 		io.to(room).emit("Alert", `team ${props.team} win`);
+				// 	} else io.to(room).emit("New Score", roomByName[room].team);
+
+				// 	roomByName[room].actuality.unshift({
+				// 		text: `team ${props.team} marque ${props.rewardPoint} points`,
+				// 		type: "succesMission"
+				// 	});
+				// 	io.to(room).emit(
+				// 		"New Actuality",
+				// 		roomByName[room].actuality
+				// 	);
+				// 	console.log(roomByName[room].actuality);
+				// });
+
+				// socket.on("New Actuality", props => {
+				// 	roomByName[room].actuality.unshift({
+				// 		text: props.text,
+				// 		idPlayer: props.idPlayer,
+				// 		type: props.type
+				// 	});
+				// 	io.to(room).emit(
+				// 		"New Actuality",
+				// 		roomByName[room].actualityrs
+				// 	);
+				// });
+
+				// socket.on("Delete Actuality", props => {
+				// 	console.log(roomByName[room].actuality);
+				// 	for (let id in roomByName[room].actuality) {
+				// 		if (roomByName[room].actuality[id].idPlayer === props) {
+				// 			roomByName[room].actuality.splice(id, 1);
+				// 		}
+				// 	}
+				// 	console.log(props);
+				// 	console.log(roomByName[room].actuality);
+				// 	io.to(room).emit(
+				// 		"New Actuality",
+				// 		roomByName[room].actuality
+				// 	);
+				// });
+
+				// socket.on("Spotted Mission", props => {
+				// 	for (let id in roomByName[room].actuality) {
+				// 		if (
+				// 			roomByName[room].actuality[id].idPlayer ===
+				// 			props.mission.idPlayer
+				// 		) {
+				// 			roomByName[room].actuality.splice(id, 1);
+				// 		}
+				// 	}
+				// 	roomByName[room].actuality.unshift({
+				// 		text: props.mission.textSpotted,
+				// 		type: "spottedMission"
+				// 	});
+				// 	io.to(room).emit(
+				// 		"New Actuality",
+				// 		roomByName[room].actuality
+				// 	);
+
+				// 	io.to(`${props.mission.idPlayer}`).emit(
+				// 		"Alert",
+				// 		`Vous devez boire 6 gorgé sous la surveillance de ${props.selfId}`
+				// 	);
+
+				// 	io.to(`${props.selfId}`).emit(
+				// 		"Alert",
+				// 		`Vous êtes le juge pour ${props.mission.idPlayer}`
+				// 	);
+				// });
+
+				// socket.on("Alert", props => {
+				// 	io.to(`${props.idPlayer}`).emit("Alert", props.alert);
+				// });
 			});
 			socket.emit("room:connected", room.name);
 		} else socket.emit("room:connectionError");
