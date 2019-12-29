@@ -20,39 +20,16 @@ app.get("/", (req, res) => {
 });
 
 ////
+
+const role = [1, 1, 1, 2, 3, 1, 1, 2, 1, 1, 3, 1, 2];
 var playersByRoom = {
 	Room1: {},
-	Room2: {
-		// miophiohh: {
-		// 	id: "miophiohh",
-		// 	name: "Fel",
-		// 	ready: true,
-		// 	room: "Room2",
-		// 	score: 0
-		// },
-		// bdgsefvssfes: {
-		// 	id: "bdgsefvssfes",
-		// 	name: "Gauth",
-		// 	ready: true,
-		// 	room: "Room2",
-		// 	score: 0
-		// },
-		// azfafafza: {
-		// 	id: "azfafafza",
-		// 	name: "Pauline",
-		// 	ready: true,
-		// 	room: "Room2",
-		// 	score: 0
-		// }
-	}
+	Room2: {}
 };
 var roomByName = {
 	Room2: {
 		name: "Room2",
-		password: "Test",
-		statusLaunch: false
-		//team: { good: 0, bad: 0 },
-		//actuality: []
+		password: "Test"
 	},
 	Room1: { name: "Room1", password: "Test" }
 };
@@ -61,11 +38,6 @@ const sendPlayersList = (playersByRoom, room, socket) => {
 	socket.emit(
 		"player:list",
 		Object.values(playersByRoom[room]).map(player => player)
-		//({
-		// 	username: player.name,
-		// 	id: player.id,
-		// 	ready: player.ready
-		// }))
 	);
 };
 ////
@@ -156,8 +128,21 @@ io.on("connection", socket => {
 				// PARTIE INGAME DES ACTIONS
 
 				socket.on("timer:end", params => {
-					sendPlayersList(playersByRoom, room, socket);
-					io.to(socket.id).emit("timer:update", 10 * 60);
+					if (params.round !== roomByName[room].round) {
+						roomByName[room].round = params.round;
+
+						var newRole = role.splice(playersByRoom[room].length);
+						Object.values(playersByRoom[room]).forEach(player => {
+							var random = Math.floor(
+								Math.random() * Math.floor(newRole.length)
+							);
+							playersByRoom[player].role = newRole[random];
+							newRole = newRole.splice(random, 1);
+						});
+						console.log(playersByRoom[room]);
+						sendPlayersList(playersByRoom, room, socket);
+						io.to(room).emit("timer:update", 10 * 60);
+					}
 				});
 
 				socket.on("player:vote", params => {
