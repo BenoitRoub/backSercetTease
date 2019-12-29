@@ -21,7 +21,7 @@ app.get("/", (req, res) => {
 
 ////
 
-const role = [1, 1, 1, 2, 3, 1, 1, 2, 1, 1, 3, 1, 2];
+const role = [1, 1, 2, 3, 1, 1, 1, 2, 1, 1, 3, 1, 2];
 var playersByRoom = {
 	Room1: {},
 	Room2: {}
@@ -131,16 +131,22 @@ io.on("connection", socket => {
 					if (params.round !== roomByName[room].round) {
 						roomByName[room].round = params.round;
 
-						var newRole = role.splice(playersByRoom[room].length);
+						var newRole = role.slice(playersByRoom[room].length);
 						Object.values(playersByRoom[room]).forEach(player => {
 							var random = Math.floor(
 								Math.random() * Math.floor(newRole.length)
 							);
-							playersByRoom[player].role = newRole[random];
-							newRole = newRole.splice(random, 1);
+							player.role = newRole[random];
+							newRole.splice(random, 1);
+							console.log(newRole[random]);
 						});
+						console.log(playersByRoom[room][socket.id].role);
 						console.log(playersByRoom[room]);
 						sendPlayersList(playersByRoom, room, socket);
+						io.to(socket.id).emit(
+							"role:update",
+							playersByRoom[room][socket.id].role
+						);
 						io.to(room).emit("timer:update", 10 * 60);
 					}
 				});
@@ -151,6 +157,39 @@ io.on("connection", socket => {
 							...playersByRoom[room][params.idTarget],
 							score:
 								playersByRoom[room][params.idTarget].score + 1
+						};
+						sendPlayersList(playersByRoom, room, socket);
+					}
+				});
+
+				socket.on("player:vote", params => {
+					if (
+						params.idTarget &&
+						playersByRoom[room][params.idTarget].role === 2
+					) {
+						playersByRoom[room][socket.id] = {
+							...playersByRoom[room][socket.id],
+							score:
+								playersByRoom[room][socket.id].score - (5 + 1)
+						};
+						sendPlayersList(playersByRoom, room, socket);
+					}
+				});
+
+				socket.on("player:vote", params => {
+					if (
+						params.idTarget &&
+						playersByRoom[room][params.idTarget].role === 3
+					) {
+						playersByRoom[room][socket.id] = {
+							...playersByRoom[room][socket.id],
+							score:
+								playersByRoom[room][socket.id].score + (5 - 1)
+						};
+						playersByRoom[room][params.idTarget] = {
+							...playersByRoom[room][params.idTarget],
+							score:
+								playersByRoom[room][params.idTarget].score - 1
 						};
 						sendPlayersList(playersByRoom, room, socket);
 					}
