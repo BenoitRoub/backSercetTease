@@ -107,12 +107,14 @@ io.on("connection", socket => {
 						};
 						io.to(room).emit("alert:newUser");
 						sendPlayersList(playersByRoom, room, io.to(room));
-						socket.emit("game:enter", { username: user.name });
+						socket.emit("game:enter", user.name);
 					}
 				});
 
 				socket.on("room:launch", () => {
+					console.log(roomByName[room]);
 					if (!roomByName[room].statusLaunch) {
+						console.log("ici");
 						roomByName[room].statusLaunch = true;
 						io.to(room).emit("game:launch", true);
 					}
